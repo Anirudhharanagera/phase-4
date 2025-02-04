@@ -14,12 +14,12 @@ from datasets import load_dataset
 
 def load_squad():
     """Load the SQuAD dataset from a local CSV file."""
-    return pd.read_csv("main/squad.csv")
+    return pd.read_csv("main/squad_sample.csv")
 
 @st.cache_resource
 def load_cnn_dailymail():
     """Load the CNN/DailyMail dataset from a local CSV file."""
-    return pd.read_csv("main/cnn_dailymail.csv")
+    return pd.read_csv("main/cnn_dailymail_sample.csv")
 
 def load_summarization_model():
     """Load BART model and tokenizer for summarization"""
