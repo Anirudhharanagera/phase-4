@@ -13,14 +13,13 @@ import pandas as pd
 from datasets import load_dataset
 
 def load_squad():
-    """Load the SQuAD dataset from Hugging Face"""
-    dataset = load_dataset("squad", split="validation[:100]")
-    return pd.DataFrame(dataset)
+    """Load the SQuAD dataset from a local CSV file."""
+    return pd.read_csv("main/squad.csv")
 
+@st.cache_resource
 def load_cnn_dailymail():
-    """Load the CNN/DailyMail dataset from Hugging Face"""
-    dataset = load_dataset("cnn_dailymail", "3.0.0", split="test[:50]")
-    return pd.DataFrame(dataset)
+    """Load the CNN/DailyMail dataset from a local CSV file."""
+    return pd.read_csv("main/cnn_dailymail.csv")
 
 def load_summarization_model():
     """Load BART model and tokenizer for summarization"""
