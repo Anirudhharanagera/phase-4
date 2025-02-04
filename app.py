@@ -4,7 +4,7 @@ import torch
 from transformers import (
     BertTokenizer,
     BertForQuestionAnswering,
-    BartForConditionalGeneration,
+    BartForConditionalGeneration,    https://github.com/Anirudhharanagera/phase-4/blob/main/squad_sample.csv
     BartTokenizer,
     pipeline,
 )
@@ -16,11 +16,11 @@ os.system("pip install datasets")
 # Load datasets from local CSV files
 @st.cache_data
 def load_squad():
-    return pd.read_csv("main/squad_sample.csv")
+    return pd.read_csv(" https://github.com/Anirudhharanagera/phase-4/blob/main/squad_sample.csv")
 
 @st.cache_data
 def load_cnn_dailymail():
-    return pd.read_csv("main/cnn_dailymail_sample.csv")
+    return pd.read_csv("")
 
 # Load BART model for summarization
 @st.cache_resource
