@@ -4,7 +4,7 @@ import torch
 from transformers import (
     BertTokenizer,
     BertForQuestionAnswering,
-    BartForConditionalGeneration,    https://github.com/Anirudhharanagera/phase-4/blob/main/squad_sample.csv
+    BartForConditionalGeneration,    
     BartTokenizer,
     pipeline,
 )
@@ -20,7 +20,7 @@ def load_squad():
 
 @st.cache_data
 def load_cnn_dailymail():
-    return pd.read_csv("")
+    return pd.read_csv("https://github.com/Anirudhharanagera/phase-4/blob/main/cnn_dailymail_sample.csv")
 
 # Load BART model for summarization
 @st.cache_resource
