@@ -16,11 +16,11 @@ os.system("pip install datasets")
 # Load datasets from local CSV files
 @st.cache_data
 def load_squad():
-    return pd.read_csv("datasets/squad_sample.csv")
+    return pd.read_csv("main/squad_sample.csv")
 
 @st.cache_data
 def load_cnn_dailymail():
-    return pd.read_csv("datasets/cnn_dailymail_sample.csv")
+    return pd.read_csv("main/cnn_dailymail_sample.csv")
 
 # Load BART model for summarization
 @st.cache_resource
