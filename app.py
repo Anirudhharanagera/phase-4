@@ -1,107 +1,153 @@
 import streamlit as st
-import os
+import pandas as pd
 import torch
 from transformers import (
-    BertTokenizer,
-    BertForQuestionAnswering,
-    BartForConditionalGeneration,    
-    BartTokenizer,
-    pipeline,
+    BertTokenizer, BertForQuestionAnswering,
+    BartTokenizer, BartForConditionalGeneration,
+    pipeline
 )
-import pandas as pd
+import fitz  # PyMuPDF for PDF processing
 
-# Install dependencies if not already installed
-os.system("pip install datasets")
-
-# Load datasets from local CSV files
-@st.cache_data
-def load_squad():
-    return pd.read_csv("https://raw.githubusercontent.com/Anirudhharanagera/phase-4/main/squad_sample.csv")
-
-@st.cache_data
-def load_cnn_dailymail():
-    return pd.read_csv("https://raw.githubusercontent.com/Anirudhharanagera/phase-4/main/cnn_dailymail_sample.csv")
-
-
-# Load BART model for summarization
+# ---- Load Pre-trained Models ---- #
 @st.cache_resource
-def load_summarization_model():
-    model_name = "facebook/bart-large-cnn"
-    tokenizer = BartTokenizer.from_pretrained(model_name)
-    model = BartForConditionalGeneration.from_pretrained(model_name).to("cuda" if torch.cuda.is_available() else "cpu")
-    return tokenizer, model
+def load_models():
+    qa_model = BertForQuestionAnswering.from_pretrained(
+        "bert-large-uncased-whole-word-masking-finetuned-squad"
+    )
+    qa_tokenizer = BertTokenizer.from_pretrained(
+        "bert-large-uncased-whole-word-masking-finetuned-squad"
+    )
+    summarization_model = BartForConditionalGeneration.from_pretrained(
+        "facebook/bart-large-cnn"
+    )
+    summarization_tokenizer = BartTokenizer.from_pretrained(
+        "facebook/bart-large-cnn"
+    )
+    ner_pipeline = pipeline(
+        "ner",
+        model="dbmdz/bert-large-cased-finetuned-conll03-english",
+        aggregation_strategy="simple"
+    )
+    sentiment_pipeline = pipeline("sentiment-analysis")
+    return (
+        qa_model, qa_tokenizer,
+        summarization_model, summarization_tokenizer,
+        ner_pipeline, sentiment_pipeline
+    )
 
-# Load BERT model for QA
-@st.cache_resource
-def load_qa_model():
-    model_name = "bert-large-uncased-whole-word-masking-finetuned-squad"
-    tokenizer = BertTokenizer.from_pretrained(model_name)
-    model = BertForQuestionAnswering.from_pretrained(model_name).to("cuda" if torch.cuda.is_available() else "cpu")
-    return tokenizer, model
+qa_model, qa_tokenizer, summarization_model, summarization_tokenizer, ner_pipeline, sentiment_pipeline = load_models()
 
-def question_answering(squad_df):
-    st.subheader("Question Answering")
-    tokenizer, model = load_qa_model()
-    
-    unique_contexts = squad_df["context"].unique()
-    context = st.selectbox("Select a context:", unique_contexts[:10])
-    question = st.text_input("Enter your question:")
-    
-    if st.button("Get Answer") and question:
-        inputs = tokenizer(question, context, return_tensors="pt", truncation=True).to(model.device)
-        outputs = model(**inputs)
-        start_index = torch.argmax(outputs.start_logits)
-        end_index = torch.argmax(outputs.end_logits) + 1
-        answer = tokenizer.convert_tokens_to_string(
-            tokenizer.convert_ids_to_tokens(inputs["input_ids"][0][start_index:end_index])
-        )
-        st.write(f"**Answer:** {answer}")
+# ---- Load Cleaned Datasets ---- #
+@st.cache_data
+def load_cleaned_datasets():
+    squad_df = pd.read_csv("cleaned_squad.csv")
+    cnn_df = pd.read_csv("cleaned_cnn_dailymail.csv")
+    return squad_df, cnn_df
 
-def text_summarization(cnn_df):
-    st.subheader("Text Summarization")
-    tokenizer, model = load_summarization_model()
-    
-    option = st.radio("Choose input type:", ("Select an article", "Manually enter text"))
-    
-    if option == "Select an article":
-        article = st.selectbox("Select an article:", cnn_df["article"].head(10))
+squad_df, cnn_df = load_cleaned_datasets()
+
+# ---- Streamlit UI ---- #
+st.title("NLP Model Deployment: Question Answering, Summarization, NER & Sentiment Analysis")
+st.write("Perform Question Answering, Document Summarization, Named Entity Recognition, and Sentiment Analysis using pre-trained NLP models.")
+
+# ---- Sidebar for Task Selection ---- #
+task_choice = st.sidebar.selectbox("Select Task", (
+    "Question Answering", "Document Summarization", "Named Entity Recognition", "Sentiment Analysis"
+))
+
+# ---- Question Answering Task ---- #
+if task_choice == "Question Answering":
+    st.subheader("Question Answering Task")
+    input_method = st.radio("Choose input method:", ("Select from Dataset", "Enter Manually"))
+
+    if input_method == "Select from Dataset":
+        selected_paragraph = st.selectbox("Select a paragraph:", squad_df["context"].unique())
     else:
-        article = st.text_area("Enter the paragraph to summarize:")
-    
-    if article and st.button("Summarize"):
-        inputs = tokenizer(article, return_tensors="pt", max_length=1024, truncation=True).to(model.device)
-        summary_ids = model.generate(
-            inputs["input_ids"], max_length=100, min_length=25, length_penalty=2.0, num_beams=4, early_stopping=True
-        )
-        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-        st.write(f"**Summary:** {summary}")
+        selected_paragraph = st.text_area("Enter your paragraph:")
 
-def document_comprehension(squad_df):
-    st.subheader("Document Comprehension")
-    tokenizer, model = load_qa_model()
-    nlp = pipeline("question-answering", model=model, tokenizer=tokenizer)
-    
-    unique_contexts = squad_df["context"].unique()
-    context = st.selectbox("Select a context:", unique_contexts[:10])
-    question = st.text_input("Enter your question:")
-    
-    if st.button("Get Answer") and question:
-        response = nlp(question=question, context=context)
-        st.write(f"**Answer:** {response['answer']}")
+    # Display selected paragraph
+    st.write("### Selected Paragraph:")
+    st.write(selected_paragraph)
 
-def main():
-    st.title("Transformer-based NLP Toolkit")
-    squad_df = load_squad()
-    cnn_df = load_cnn_dailymail()
-    
-    task = st.sidebar.selectbox("Select a Task", ["Question Answering", "Text Summarization", "Document Comprehension"])
-    
-    if task == "Question Answering":
-        question_answering(squad_df)
-    elif task == "Text Summarization":
-        text_summarization(cnn_df)
-    elif task == "Document Comprehension":
-        document_comprehension(squad_df)
+    # User inputs question
+    user_question = st.text_input("Enter your question:")
 
-if __name__ == "__main__":
-    main()
+    if st.button("Get Answer"):
+        if user_question and selected_paragraph:
+            inputs = qa_tokenizer(user_question, selected_paragraph, return_tensors="pt", truncation=True)
+            with torch.no_grad():
+                outputs = qa_model(**inputs)
+            # Extract start and end tokens
+            answer_start = torch.argmax(outputs.start_logits)
+            answer_end = torch.argmax(outputs.end_logits) + 1
+            answer = qa_tokenizer.convert_tokens_to_string(
+                qa_tokenizer.convert_ids_to_tokens(inputs["input_ids"][0][answer_start:answer_end])
+            )
+            st.write(f"### Predicted Answer: {answer}")
+        else:
+            st.warning("Please enter a question and a paragraph.")
+
+# ---- Document Summarization Task ---- #
+elif task_choice == "Document Summarization":
+    st.subheader("Document Summarization Task")
+    input_option = st.radio("Choose input method:", ("Select from Dataset", "Enter Manually", "Upload PDF"))
+
+    if input_option == "Select from Dataset":
+        selected_article = st.selectbox("Select a paragraph:", cnn_df["article"].unique())
+    elif input_option == "Enter Manually":
+        selected_article = st.text_area("Enter your text:")
+    elif input_option == "Upload PDF":
+        uploaded_file = st.file_uploader("Upload a PDF", type=["pdf"])
+        if uploaded_file is not None:
+            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+            selected_article = " ".join([page.get_text("text") for page in doc])
+            st.write("### Extracted Text from PDF:")
+            st.write(selected_article)
+
+    if st.button("Summarize"):
+        if selected_article:
+            inputs = summarization_tokenizer(selected_article, return_tensors="pt", max_length=1024, truncation=True)
+            with torch.no_grad():
+                summary_ids = summarization_model.generate(
+                    **inputs, max_length=150, min_length=30, length_penalty=2.0, num_beams=4
+                )
+                summary = summarization_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+                st.write(f"### Generated Summary: {summary}")
+        else:
+            st.warning("Please provide text to summarize.")
+
+# ---- Named Entity Recognition (NER) ---- #
+elif task_choice == "Named Entity Recognition":
+    st.subheader("Named Entity Recognition")
+    user_text = st.text_area("Enter text for NER analysis:")
+    if st.button("Analyze"):
+        if user_text:
+            ner_results = ner_pipeline(user_text)
+            filtered_entities = [e for e in ner_results if e['entity_group'] in ['PER', 'ORG', 'LOC', 'MISC']]
+            if filtered_entities:
+                for entity in filtered_entities:
+                    st.write(
+                        f"**Entity:** {entity['word']} | "
+                        f"**Type:** {entity['entity_group']} | "
+                        f"**Confidence:** {entity['score']:.2f}"
+                    )
+            else:
+                st.write("No named entities found.")
+        else:
+            st.warning("Please enter text for analysis.")
+
+# ---- Sentiment Analysis ---- #
+elif task_choice == "Sentiment Analysis":
+    st.subheader("Sentiment Analysis")
+    sentiment_text = st.text_area("Enter text for sentiment analysis:")
+    if st.button("Analyze Sentiment"):
+        if sentiment_text:
+            sentiment_result = sentiment_pipeline(sentiment_text)
+            label = sentiment_result[0]['label']
+            score = sentiment_result[0]['score']
+            st.write(f"**Sentiment:** {label} | **Confidence:** {score:.2f}")
+        else:
+            st.warning("Please enter text for analysis.")
+
+st.write("---")
+st.write("Developed using Streamlit")
