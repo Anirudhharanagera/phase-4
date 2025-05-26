@@ -2,38 +2,44 @@ import streamlit as st
 import pandas as pd
 import torch
 from transformers import (
-    BertTokenizer, BertForQuestionAnswering,
-    BartTokenizer, BartForConditionalGeneration,
+    AutoTokenizer, AutoModelForQuestionAnswering,
+    AutoModelForSeq2SeqLM,
     pipeline
 )
+
 import fitz  # PyMuPDF for PDF processing
 
 # ---- Load Pre-trained Models ---- #
 @st.cache_resource
 def load_models():
-    qa_model = BertForQuestionAnswering.from_pretrained(
+    qa_model = AutoModelForQuestionAnswering.from_pretrained(
         "bert-large-uncased-whole-word-masking-finetuned-squad"
     )
-    qa_tokenizer = BertTokenizer.from_pretrained(
+    qa_tokenizer = AutoTokenizer.from_pretrained(
         "bert-large-uncased-whole-word-masking-finetuned-squad"
     )
-    summarization_model = BartForConditionalGeneration.from_pretrained(
+
+    summarization_model = AutoModelForSeq2SeqLM.from_pretrained(
         "facebook/bart-large-cnn"
     )
-    summarization_tokenizer = BartTokenizer.from_pretrained(
+    summarization_tokenizer = AutoTokenizer.from_pretrained(
         "facebook/bart-large-cnn"
     )
+
     ner_pipeline = pipeline(
         "ner",
         model="dbmdz/bert-large-cased-finetuned-conll03-english",
         aggregation_strategy="simple"
     )
+
     sentiment_pipeline = pipeline("sentiment-analysis")
+
     return (
         qa_model, qa_tokenizer,
         summarization_model, summarization_tokenizer,
         ner_pipeline, sentiment_pipeline
     )
+
 
 qa_model, qa_tokenizer, summarization_model, summarization_tokenizer, ner_pipeline, sentiment_pipeline = load_models()
 
